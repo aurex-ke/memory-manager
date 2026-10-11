@@ -17,6 +17,7 @@
     #chart { max-width: 100%; height: auto; }
     .access { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
     .access input[type=number] { width: 5rem; }
+    #pt { font: 13px ui-monospace, monospace; margin: .5rem 0; color: #374151; }
     #log { list-style: none; padding: 0; margin: .5rem 0 1rem; font: 13px ui-monospace, monospace; max-height: 200px; overflow-y: auto; }
     #log li { padding: .2rem .4rem; border-left: 3px solid; margin-bottom: 2px; }
     #log li.allowed { border-color: #16a34a; background: #f0fdf4; }
@@ -37,22 +38,29 @@
   <h2>Process isolation</h2>
   <div class="access">
     <label>Actor <select id="actor"></select></label>
-    <label>Target page <input id="target" type="number" min="0" value="0"></label>
+    <label>Address space
+      <select id="space">
+        <option value="virtual">Virtual (own pages)</option>
+        <option value="physical">Physical (rogue frame)</option>
+      </select>
+    </label>
+    <label>Page / frame <input id="target" type="number" min="0" value="0"></label>
     <label>Value <input id="value" type="text" value="secret"></label>
     <button data-op="read">Read</button>
     <button data-op="write">Write</button>
   </div>
+  <div id="pt"></div>
   <ul id="log"></ul>
 
   <h2>Processes</h2>
   <table>
-    <thead><tr><th>PID</th><th>App</th><th>Size</th><th>Start page</th><th>State</th><th></th></tr></thead>
+    <thead><tr><th>PID</th><th>App</th><th>Size</th><th>State</th><th></th></tr></thead>
     <tbody id="procs"></tbody>
   </table>
 
-  <h2>Page lookup table (RAM)</h2>
+  <h2>Frame lookup table (RAM)</h2>
   <table>
-    <thead><tr><th>Page</th><th>Address</th><th>Status</th><th>Owner</th></tr></thead>
+    <thead><tr><th>Frame</th><th>Address</th><th>Status</th><th>Owner</th><th>Virtual page</th></tr></thead>
     <tbody id="pages"></tbody>
   </table>
 

@@ -9,7 +9,9 @@ export class ProcessManager {
     this.totalPages = config.RAM_MB / config.PAGE_MB;
     this.memory = new Memory(this.totalPages);
     this.disk = new Disk(config.DISK_MB / config.PAGE_MB);
-    this.procs = new Map(); // pid -> { pid, name, pages, start, state, lastUsed }
+    // pid -> { pid, name, pages, state, lastUsed, pageTable }
+    // pageTable[vpage] = physical frame; null while swapped to disk
+    this.procs = new Map();
     this.nextPid = 1;
     this.clock = 0; // logical time for LRU
     this.log = []; // newest first
@@ -20,11 +22,15 @@ export class ProcessManager {
     if (this.log.length > LOG_LIMIT) this.log.pop();
   }
 
+  _buildTable(block) {
+    return Array.from({ length: block.pages }, (_, i) => block.start + i);
+  }
+
   _swapOut(proc) {
     if (proc.pages > this.disk.freePages()) return false;
     this.disk.store(proc.pid, this.memory.evict(proc.pid));
     proc.state = 'disk';
-    proc.start = null;
+    proc.pageTable = null;
     this._log('swap', `SWAP OUT ${proc.name} (pid ${proc.pid}) -> disk (LRU)`);
     return true;
   }
@@ -43,9 +49,17 @@ export class ProcessManager {
     if (!this._makeRoom(proc.pages)) return false;
     const block = this.memory.load(proc.pid, this.disk.take(proc.pid));
     proc.state = 'ram';
-    proc.start = block.start; // may differ from the old location
+    proc.pageTable = this._buildTable(block); // new frames, same virtual pages
     this._log('swap', `SWAP IN ${proc.name} (pid ${proc.pid}) <- disk`);
     return true;
+  }
+
+  // Virtual page -> physical frame, or a segfault.
+  _translate(proc, vpage) {
+    if (!Number.isInteger(vpage) || vpage < 0 || vpage >= proc.pages) {
+      return { ok: false, reason: `segfault: virtual page out of range (0-${proc.pages - 1})` };
+    }
+    return { ok: true, frame: proc.pageTable[vpage] };
   }
 
   launch(name, mb) {
@@ -55,7 +69,14 @@ export class ProcessManager {
     }
     const pid = this.nextPid++;
     const block = this.memory.allocate(pid, pages);
-    const proc = { pid, name, pages, start: block.start, state: 'ram', lastUsed: ++this.clock };
+    const proc = {
+      pid,
+      name,
+      pages,
+      state: 'ram',
+      lastUsed: ++this.clock,
+      pageTable: this._buildTable(block),
+    };
     this.procs.set(pid, proc);
     return { ok: true, proc };
   }
@@ -80,34 +101,44 @@ export class ProcessManager {
     return { ok: true };
   }
 
-  // op: 'read' | 'write'. Targets a physical page.
-  access(pid, op, page, value = null) {
+  // op: 'read' | 'write'
+  // space: 'virtual' (normal: addr is the process's own page number)
+  //        'physical' (rogue: addr is a raw frame number, owner check still applies)
+  access(pid, op, addr, value = null, space = 'virtual') {
     const proc = this.procs.get(pid);
     if (!proc) return { ok: false, reason: 'no such process' };
     const who = `${proc.name} (pid ${pid})`;
+    const deny = (reason, target) => {
+      this._log('blocked', `${who} ${op} ${target} -> BLOCKED (${reason})`);
+      return { ok: false, reason };
+    };
 
     const t = this.touch(pid); // page fault handling + LRU update
-    if (!t.ok) {
-      this._log('blocked', `${who} ${op} page ${page} -> BLOCKED (${t.reason})`);
-      return t;
+    if (!t.ok) return deny(t.reason, `${space === 'physical' ? 'frame' : 'vpage'} ${addr}`);
+
+    let frame = addr;
+    let target = `PHYSICAL frame ${addr}`;
+    if (space === 'virtual') {
+      const tr = this._translate(proc, addr);
+      if (!tr.ok) return deny(tr.reason, `vpage ${addr}`);
+      frame = tr.frame;
+      target = `vpage ${addr} (frame ${frame})`;
     }
 
     const result =
-      op === 'write' ? this.memory.write(pid, page, value) : this.memory.read(pid, page);
-    const detail = result.ok
-      ? op === 'read'
-        ? `value: ${JSON.stringify(result.value)}`
-        : `wrote ${JSON.stringify(value)}`
-      : result.reason;
-    this._log(
-      result.ok ? 'allowed' : 'blocked',
-      `${who} ${op} page ${page} -> ${result.ok ? 'ALLOWED' : 'BLOCKED'} (${detail})`
-    );
+      op === 'write' ? this.memory.write(pid, frame, value) : this.memory.read(pid, frame);
+    if (!result.ok) return deny(result.reason, target);
+
+    const detail = op === 'read' ? `value: ${JSON.stringify(result.value)}` : `wrote ${JSON.stringify(value)}`;
+    this._log('allowed', `${who} ${op} ${target} -> ALLOWED (${detail})`);
     return result;
   }
 
   getState() {
-    const procs = [...this.procs.values()];
+    const procs = [...this.procs.values()].map((p) => ({
+      ...p,
+      pageTable: p.pageTable ? [...p.pageTable] : null,
+    }));
     return {
       frames: [...this.memory.frames],
       procs,

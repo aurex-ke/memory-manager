@@ -17,14 +17,12 @@ function render(msg = '') {
     `Swap used: ${(s.diskTotal - s.diskFree) * s.pageMb} / ${s.diskTotal * s.pageMb} MB`;
 
   $('procs').innerHTML = s.procs
-    .map((p) => {
-      const inRam = p.state === 'ram';
-      return (
-        `<tr><td>${p.pid}</td><td>${p.name}</td><td>${p.pages * s.pageMb} MB</td>` +
-        `<td>${inRam ? p.start : '-'}</td><td>${inRam ? 'RAM' : 'Swapped'}</td>` +
+    .map(
+      (p) =>
+        `<tr><td>${p.pid}</td><td>${p.name}</td><td>${p.pages * s.pageMb} MB (${p.pages} pages)</td>` +
+        `<td>${p.state === 'ram' ? 'RAM' : 'Swapped'}</td>` +
         `<td><button data-touch="${p.pid}">Touch</button><button data-close="${p.pid}">Close</button></td></tr>`
-      );
-    })
+    )
     .join('');
 
   // Keep the selected actor across re-renders.
@@ -34,6 +32,13 @@ function render(msg = '') {
     .join('');
   if (s.procs.some((p) => String(p.pid) === prev)) $('actor').value = prev;
 
+  const actor = s.procs.find((p) => String(p.pid) === $('actor').value);
+  $('pt').textContent = !actor
+    ? ''
+    : actor.pageTable
+      ? 'Page table: ' + actor.pageTable.map((f, v) => `v${v}→f${f}`).join('  ')
+      : 'Page table: none (swapped to disk)';
+
   $('log').innerHTML = s.log.map((l) => `<li class="${l.kind}">${l.text}</li>`).join('');
   $('msg').textContent = msg;
 }
@@ -41,6 +46,8 @@ function render(msg = '') {
 $('apps').innerHTML = CONFIG.APPS.map(
   (a, i) => `<button data-app="${i}">${a.name} (${a.mb} MB)</button>`
 ).join('');
+
+$('actor').addEventListener('change', () => render());
 
 document.addEventListener('click', (e) => {
   const d = e.target.dataset;
@@ -56,8 +63,8 @@ document.addEventListener('click', (e) => {
     render(r.ok ? '' : r.reason);
   } else if (d.op !== undefined) {
     if (!$('actor').value) return render('Launch an app first.');
-    const page = parseInt($('target').value, 10);
-    pm.access(Number($('actor').value), d.op, page, $('value').value);
+    const addr = parseInt($('target').value, 10);
+    pm.access(Number($('actor').value), d.op, addr, $('value').value, $('space').value);
     render();
   }
 });

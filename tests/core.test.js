@@ -36,6 +36,7 @@ test('ProcessManager launch/close lifecycle', () => {
   const r = pm.launch('A', 20); // 2 pages
   assert.equal(r.ok, true);
   assert.equal(r.proc.pages, 2);
+  assert.deepEqual(r.proc.pageTable, [0, 1]);
   assert.equal(pm.launch('Big', 80).ok, false); // 5 pages > RAM
   assert.equal(pm.getState().swapped.length, 0); // hopeless launch evicts nothing
   assert.equal(pm.close(r.proc.pid), true);
@@ -78,40 +79,64 @@ test('freed pages are wiped before reuse', () => {
   assert.equal(m.read(2, 0).value, null);
 });
 
-test('ProcessManager logs allowed and blocked accesses', () => {
+test('virtual access works and is logged', () => {
   const pm = new ProcessManager(cfg);
-  const a = pm.launch('A', 16).proc; // page 0
-  pm.launch('B', 16); // page 1
-  assert.equal(pm.access(a.pid, 'write', 0, 'x').ok, true);
-  assert.equal(pm.access(a.pid, 'read', 1).ok, false);
-  assert.equal(pm.access(999, 'read', 0).ok, false);
-  const log = pm.getState().log;
-  assert.equal(log.length, 2); // unknown pid is rejected before logging
-  assert.equal(log[0].ok, false);
-  assert.equal(log[1].ok, true);
+  const a = pm.launch('A', 16).proc; // frame 0
+  const b = pm.launch('B', 16).proc; // frame 1
+  assert.equal(pm.access(b.pid, 'write', 0, 'bee').ok, true); // B's vpage 0 = frame 1
+  assert.equal(pm.access(b.pid, 'read', 0).value, 'bee');
+  assert.equal(pm.access(a.pid, 'read', 0).value, null); // A's vpage 0 is a different frame
+  assert.equal(pm.access(999, 'read', 0).ok, false); // rejected before logging
+  assert.equal(pm.getState().log.length, 3);
+});
+
+test('virtual out-of-range is a segfault', () => {
+  const pm = new ProcessManager(cfg);
+  const a = pm.launch('A', 16).proc; // 1 page
+  const r = pm.access(a.pid, 'read', 1);
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /segfault/);
+  assert.equal(pm.access(a.pid, 'read', -1).ok, false);
+  assert.equal(pm.access(a.pid, 'read', NaN).ok, false);
+});
+
+test('rogue physical access to another process is blocked', () => {
+  const pm = new ProcessManager(cfg);
+  const a = pm.launch('A', 16).proc; // frame 0
+  const b = pm.launch('B', 16).proc; // frame 1
+  pm.access(b.pid, 'write', 0, 'B-secret');
+  const r = pm.access(a.pid, 'read', 1, null, 'physical');
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /owned by pid 2/);
+  assert.equal(pm.access(a.pid, 'write', 1, 'hacked', 'physical').ok, false);
+  assert.equal(pm.access(b.pid, 'read', 0).value, 'B-secret'); // untouched
+  assert.equal(pm.access(a.pid, 'write', 0, 'mine', 'physical').ok, true); // own frame is fine
 });
 
 test('launch swaps out the LRU process when RAM is full', () => {
   const pm = new ProcessManager(cfg);
-  const a = pm.launch('A', 32).proc; // pages 0-1
-  const b = pm.launch('B', 32).proc; // pages 2-3
+  const a = pm.launch('A', 32).proc;
+  const b = pm.launch('B', 32).proc;
   pm.touch(a.pid); // B is now LRU
   assert.equal(pm.launch('C', 16).ok, true);
   assert.equal(pm.procs.get(b.pid).state, 'disk');
+  assert.equal(pm.procs.get(b.pid).pageTable, null);
   assert.equal(pm.procs.get(a.pid).state, 'ram');
   assert.deepEqual(pm.getState().swapped.map((p) => p.pid), [b.pid]);
 });
 
-test('data survives swap-out and swap-in', () => {
+test('relocation on swap-in is invisible to the process', () => {
   const pm = new ProcessManager(cfg);
-  const a = pm.launch('A', 32).proc;
+  const a = pm.launch('A', 32).proc; // frames 0-1
   pm.access(a.pid, 'write', 0, 'keep-me');
-  pm.launch('B', 32);
+  pm.access(a.pid, 'write', 1, 'keep-me-too');
+  pm.launch('B', 32); // frames 2-3
   pm.launch('C', 32); // evicts A
   assert.equal(pm.procs.get(a.pid).state, 'disk');
-  assert.equal(pm.touch(a.pid).ok, true); // swap-in evicts B
-  const start = pm.procs.get(a.pid).start;
-  assert.equal(pm.access(a.pid, 'read', start).value, 'keep-me');
+  assert.equal(pm.touch(a.pid).ok, true); // swap-in evicts B, lands on frames 2-3
+  assert.deepEqual(pm.procs.get(a.pid).pageTable, [2, 3]); // moved...
+  assert.equal(pm.access(a.pid, 'read', 0).value, 'keep-me'); // ...same virtual addresses
+  assert.equal(pm.access(a.pid, 'read', 1).value, 'keep-me-too');
 });
 
 test('swap-out leaves no data behind for the next owner', () => {
@@ -119,8 +144,8 @@ test('swap-out leaves no data behind for the next owner', () => {
   const a = pm.launch('A', 32).proc;
   pm.access(a.pid, 'write', 0, 'secret');
   pm.launch('B', 32);
-  const c = pm.launch('C', 32).proc; // takes A's old pages 0-1
-  assert.equal(c.start, 0);
+  const c = pm.launch('C', 32).proc; // takes A's old frames 0-1
+  assert.deepEqual(c.pageTable, [0, 1]);
   assert.equal(pm.access(c.pid, 'read', 0).value, null);
 });
 
