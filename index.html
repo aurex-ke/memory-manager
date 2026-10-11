@@ -14,6 +14,12 @@
     td, th { border-bottom: 1px solid #e5e7eb; padding: .3rem .4rem; text-align: left; font-size: 14px; }
     #msg { color: #b91c1c; min-height: 1.4em; }
     h2 { font-size: 1.05rem; margin: 1.2rem 0 .4rem; }
+    .access { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    .access input[type=number] { width: 5rem; }
+    #log { list-style: none; padding: 0; margin: .5rem 0 1rem; font: 13px ui-monospace, monospace; max-height: 200px; overflow-y: auto; }
+    #log li { padding: .2rem .4rem; border-left: 3px solid; margin-bottom: 2px; }
+    #log li.ok { border-color: #16a34a; background: #f0fdf4; }
+    #log li.blocked { border-color: #dc2626; background: #fef2f2; }
   </style>
 </head>
 <body>
@@ -25,6 +31,16 @@
 
   <h2>Resource map</h2>
   <canvas id="chart" width="460" height="200"></canvas>
+
+  <h2>Process isolation</h2>
+  <div class="access">
+    <label>Actor <select id="actor"></select></label>
+    <label>Target page <input id="target" type="number" min="0" value="0"></label>
+    <label>Value <input id="value" type="text" value="secret"></label>
+    <button data-op="read">Read</button>
+    <button data-op="write">Write</button>
+  </div>
+  <ul id="log"></ul>
 
   <h2>Processes</h2>
   <table>

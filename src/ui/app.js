@@ -20,6 +20,17 @@ function render(msg = '') {
         `<td><button data-close="${p.pid}">Close</button></td></tr>`
     )
     .join('');
+
+  // Keep the selected actor across re-renders.
+  const prev = $('actor').value;
+  $('actor').innerHTML = s.procs
+    .map((p) => `<option value="${p.pid}">${p.name} (pid ${p.pid})</option>`)
+    .join('');
+  if (s.procs.some((p) => String(p.pid) === prev)) $('actor').value = prev;
+
+  $('log').innerHTML = s.log
+    .map((l) => `<li class="${l.ok ? 'ok' : 'blocked'}">${l.text}</li>`)
+    .join('');
   $('msg').textContent = msg;
 }
 
@@ -35,6 +46,11 @@ document.addEventListener('click', (e) => {
     render(r.ok ? '' : r.error);
   } else if (d.close !== undefined) {
     pm.close(Number(d.close));
+    render();
+  } else if (d.op !== undefined) {
+    if (!$('actor').value) return render('Launch an app first.');
+    const page = parseInt($('target').value, 10);
+    pm.access(Number($('actor').value), d.op, page, $('value').value);
     render();
   }
 });
