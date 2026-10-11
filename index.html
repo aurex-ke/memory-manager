@@ -14,12 +14,14 @@
     td, th { border-bottom: 1px solid #e5e7eb; padding: .3rem .4rem; text-align: left; font-size: 14px; }
     #msg { color: #b91c1c; min-height: 1.4em; }
     h2 { font-size: 1.05rem; margin: 1.2rem 0 .4rem; }
+    #chart { max-width: 100%; height: auto; }
     .access { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
     .access input[type=number] { width: 5rem; }
     #log { list-style: none; padding: 0; margin: .5rem 0 1rem; font: 13px ui-monospace, monospace; max-height: 200px; overflow-y: auto; }
     #log li { padding: .2rem .4rem; border-left: 3px solid; margin-bottom: 2px; }
-    #log li.ok { border-color: #16a34a; background: #f0fdf4; }
+    #log li.allowed { border-color: #16a34a; background: #f0fdf4; }
     #log li.blocked { border-color: #dc2626; background: #fef2f2; }
+    #log li.swap { border-color: #2563eb; background: #eff6ff; }
   </style>
 </head>
 <body>
@@ -30,7 +32,7 @@
   <div id="stats"></div>
 
   <h2>Resource map</h2>
-  <canvas id="chart" width="460" height="200"></canvas>
+  <canvas id="chart" width="760" height="320"></canvas>
 
   <h2>Process isolation</h2>
   <div class="access">
@@ -44,14 +46,20 @@
 
   <h2>Processes</h2>
   <table>
-    <thead><tr><th>PID</th><th>App</th><th>Size</th><th>Start page</th><th></th></tr></thead>
+    <thead><tr><th>PID</th><th>App</th><th>Size</th><th>Start page</th><th>State</th><th></th></tr></thead>
     <tbody id="procs"></tbody>
   </table>
 
-  <h2>Page lookup table</h2>
+  <h2>Page lookup table (RAM)</h2>
   <table>
     <thead><tr><th>Page</th><th>Address</th><th>Status</th><th>Owner</th></tr></thead>
     <tbody id="pages"></tbody>
+  </table>
+
+  <h2>Swap space (disk)</h2>
+  <table>
+    <thead><tr><th>PID</th><th>App</th><th>Pages</th><th>Size</th><th>Status</th></tr></thead>
+    <tbody id="swap"></tbody>
   </table>
 
   <script type="module" src="src/ui/app.js"></script>

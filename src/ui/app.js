@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js';
 import { ProcessManager } from '../core/process.js';
-import { renderGrid, renderTable } from './grid.js';
+import { renderGrid, renderTable, renderSwapTable } from './grid.js';
 import { renderChart } from './chart.js';
 
 const pm = new ProcessManager(CONFIG);
@@ -9,28 +9,32 @@ const $ = (id) => document.getElementById(id);
 function render(msg = '') {
   const s = pm.getState();
   renderGrid($('grid'), s.frames, s.procs);
-  renderChart($('chart'), s.frames, s.procs, s.pageMb);
+  renderChart($('chart'), s);
   renderTable($('pages'), s.frames, s.procs, s.pageMb);
+  renderSwapTable($('swap'), s.swapped, s.pageMb);
   $('stats').textContent =
-    `Free: ${s.free * s.pageMb} MB | Largest free block: ${s.largestFree * s.pageMb} MB`;
+    `Free RAM: ${s.free * s.pageMb} MB | Largest free block: ${s.largestFree * s.pageMb} MB | ` +
+    `Swap used: ${(s.diskTotal - s.diskFree) * s.pageMb} / ${s.diskTotal * s.pageMb} MB`;
+
   $('procs').innerHTML = s.procs
-    .map(
-      (p) =>
-        `<tr><td>${p.pid}</td><td>${p.name}</td><td>${p.pages * s.pageMb} MB</td><td>${p.start}</td>` +
-        `<td><button data-close="${p.pid}">Close</button></td></tr>`
-    )
+    .map((p) => {
+      const inRam = p.state === 'ram';
+      return (
+        `<tr><td>${p.pid}</td><td>${p.name}</td><td>${p.pages * s.pageMb} MB</td>` +
+        `<td>${inRam ? p.start : '-'}</td><td>${inRam ? 'RAM' : 'Swapped'}</td>` +
+        `<td><button data-touch="${p.pid}">Touch</button><button data-close="${p.pid}">Close</button></td></tr>`
+      );
+    })
     .join('');
 
   // Keep the selected actor across re-renders.
   const prev = $('actor').value;
   $('actor').innerHTML = s.procs
-    .map((p) => `<option value="${p.pid}">${p.name} (pid ${p.pid})</option>`)
+    .map((p) => `<option value="${p.pid}">${p.name} (pid ${p.pid})${p.state === 'disk' ? ' [swapped]' : ''}</option>`)
     .join('');
   if (s.procs.some((p) => String(p.pid) === prev)) $('actor').value = prev;
 
-  $('log').innerHTML = s.log
-    .map((l) => `<li class="${l.ok ? 'ok' : 'blocked'}">${l.text}</li>`)
-    .join('');
+  $('log').innerHTML = s.log.map((l) => `<li class="${l.kind}">${l.text}</li>`).join('');
   $('msg').textContent = msg;
 }
 
@@ -47,6 +51,9 @@ document.addEventListener('click', (e) => {
   } else if (d.close !== undefined) {
     pm.close(Number(d.close));
     render();
+  } else if (d.touch !== undefined) {
+    const r = pm.touch(Number(d.touch));
+    render(r.ok ? '' : r.reason);
   } else if (d.op !== undefined) {
     if (!$('actor').value) return render('Launch an app first.');
     const page = parseInt($('target').value, 10);

@@ -24,3 +24,13 @@ export function pidColor(pid) {
       })
       .join('');
   }
+  export function renderSwapTable(el, swapped, pageMb) {
+    el.innerHTML = swapped.length
+      ? swapped
+          .map(
+            (p) =>
+              `<tr><td>${p.pid}</td><td>${p.name}</td><td>${p.pages}</td><td>${p.pages * pageMb} MB</td><td>Swapped</td></tr>`
+          )
+          .join('')
+      : `<tr><td colspan="5">Swap disk empty</td></tr>`;
+  }

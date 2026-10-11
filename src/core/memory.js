@@ -35,6 +35,26 @@ export class Memory {
       return freed;
     }
   
+    // Swap-out: copy a process's page contents (frame order), then free its frames.
+    evict(pid) {
+      const saved = [];
+      for (let i = 0; i < this.frames.length; i++) {
+        if (this.frames[i] === pid) saved.push(this.data[i]);
+      }
+      this.free(pid);
+      return saved;
+    }
+  
+    // Swap-in: allocate a block and restore saved contents into it.
+    load(pid, saved) {
+      const block = this.allocate(pid, saved.length);
+      if (!block) return null;
+      saved.forEach((v, i) => {
+        this.data[block.start + i] = v;
+      });
+      return block;
+    }
+  
     // The isolation boundary. Every access goes through here.
     check(pid, page) {
       if (!Number.isInteger(page) || page < 0 || page >= this.frames.length) {
