@@ -3,8 +3,11 @@ import { ProcessManager } from '../core/process.js';
 import { renderGrid, renderTable, renderSwapTable } from './grid.js';
 import { renderChart } from './chart.js';
 
+const TICK_MS = 1000;
+
 const pm = new ProcessManager(CONFIG);
 const $ = (id) => document.getElementById(id);
+let timer = null;
 
 function render(msg = '') {
   const s = pm.getState();
@@ -20,7 +23,7 @@ function render(msg = '') {
     .map(
       (p) =>
         `<tr><td>${p.pid}</td><td>${p.name}</td><td>${p.pages * s.pageMb} MB (${p.pages} pages)</td>` +
-        `<td>${p.state === 'ram' ? 'RAM' : 'Swapped'}</td>` +
+        `<td>${p.state === 'ram' ? 'RAM' : 'Swapped'}</td><td>${p.lastUsed}</td>` +
         `<td><button data-touch="${p.pid}">Touch</button><button data-close="${p.pid}">Close</button></td></tr>`
     )
     .join('');
@@ -43,6 +46,25 @@ function render(msg = '') {
   $('msg').textContent = msg;
 }
 
+// Auto-idle: touch one random process per tick (swap-in happens automatically).
+function tick() {
+  const pids = [...pm.procs.keys()];
+  if (pids.length === 0) return;
+  const r = pm.touch(pids[Math.floor(Math.random() * pids.length)]);
+  render(r.ok ? '' : r.reason);
+}
+
+function toggleAuto() {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  } else {
+    timer = setInterval(tick, TICK_MS);
+  }
+  $('auto').textContent = timer ? 'Auto-activity: ON' : 'Auto-activity: OFF';
+  $('auto').classList.toggle('on', timer !== null);
+}
+
 $('apps').innerHTML = CONFIG.APPS.map(
   (a, i) => `<button data-app="${i}">${a.name} (${a.mb} MB)</button>`
 ).join('');
@@ -51,7 +73,9 @@ $('actor').addEventListener('change', () => render());
 
 document.addEventListener('click', (e) => {
   const d = e.target.dataset;
-  if (d.app !== undefined) {
+  if (d.auto !== undefined) {
+    toggleAuto();
+  } else if (d.app !== undefined) {
     const a = CONFIG.APPS[Number(d.app)];
     const r = pm.launch(a.name, a.mb);
     render(r.ok ? '' : r.error);

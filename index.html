@@ -23,11 +23,13 @@
     #log li.allowed { border-color: #16a34a; background: #f0fdf4; }
     #log li.blocked { border-color: #dc2626; background: #fef2f2; }
     #log li.swap { border-color: #2563eb; background: #eff6ff; }
+    #auto.on { background: #16a34a; color: #fff; border-color: #15803d; }
   </style>
 </head>
 <body>
   <h1>Memory Resource Manager</h1>
   <div id="apps"></div>
+  <button id="auto" data-auto>Auto-activity: OFF</button>
   <div id="msg"></div>
   <div id="grid"></div>
   <div id="stats"></div>
@@ -54,7 +56,7 @@
 
   <h2>Processes</h2>
   <table>
-    <thead><tr><th>PID</th><th>App</th><th>Size</th><th>State</th><th></th></tr></thead>
+    <thead><tr><th>PID</th><th>App</th><th>Size</th><th>State</th><th>Last used</th><th></th></tr></thead>
     <tbody id="procs"></tbody>
   </table>
 
