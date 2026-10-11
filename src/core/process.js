@@ -22,23 +22,19 @@ export class ProcessManager {
     if (this.log.length > LOG_LIMIT) this.log.pop();
   }
 
-  _buildTable(block) {
-    return Array.from({ length: block.pages }, (_, i) => block.start + i);
-  }
-
   _swapOut(proc) {
     if (proc.pages > this.disk.freePages()) return false;
-    this.disk.store(proc.pid, this.memory.evict(proc.pid));
+    this.disk.store(proc.pid, this.memory.evict(proc.pid, proc.pageTable));
     proc.state = 'disk';
     proc.pageTable = null;
     this._log('swap', `SWAP OUT ${proc.name} (pid ${proc.pid}) -> disk (LRU)`);
     return true;
   }
 
-  // Evict LRU processes until a contiguous block of `pages` exists.
+  // Evict LRU processes until `pages` free frames exist (contiguity not required).
   _makeRoom(pages) {
     if (pages > this.totalPages) return false;
-    while (this.memory.largestFreeBlock() < pages) {
+    while (this.memory.freePages() < pages) {
       const victim = pickLruVictim(this.procs.values());
       if (!victim || !this._swapOut(victim)) return false;
     }
@@ -47,9 +43,8 @@ export class ProcessManager {
 
   _swapIn(proc) {
     if (!this._makeRoom(proc.pages)) return false;
-    const block = this.memory.load(proc.pid, this.disk.take(proc.pid));
+    proc.pageTable = this.memory.load(proc.pid, this.disk.take(proc.pid));
     proc.state = 'ram';
-    proc.pageTable = this._buildTable(block); // new frames, same virtual pages
     this._log('swap', `SWAP IN ${proc.name} (pid ${proc.pid}) <- disk`);
     return true;
   }
@@ -68,14 +63,13 @@ export class ProcessManager {
       return { ok: false, error: `Out of memory: ${name} needs ${pages} pages and nothing more can be swapped out` };
     }
     const pid = this.nextPid++;
-    const block = this.memory.allocate(pid, pages);
     const proc = {
       pid,
       name,
       pages,
       state: 'ram',
       lastUsed: ++this.clock,
-      pageTable: this._buildTable(block),
+      pageTable: this.memory.allocate(pid, pages),
     };
     this.procs.set(pid, proc);
     return { ok: true, proc };

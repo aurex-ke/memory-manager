@@ -4,23 +4,18 @@ export class Memory {
       this.data = new Array(totalPages).fill(null);   // simulated page contents
     }
   
-    // First-fit: first contiguous run of free frames big enough.
+    // Non-contiguous: take the lowest free frames. Returns frame numbers
+    // (index = virtual page) or null if there are not enough free frames.
     allocate(pid, pages) {
-      let runStart = 0;
-      let runLen = 0;
-      for (let i = 0; i < this.frames.length; i++) {
+      if (this.freePages() < pages) return null;
+      const got = [];
+      for (let i = 0; i < this.frames.length && got.length < pages; i++) {
         if (this.frames[i] === null) {
-          if (runLen === 0) runStart = i;
-          runLen++;
-          if (runLen === pages) {
-            this.frames.fill(pid, runStart, runStart + pages);
-            return { start: runStart, pages };
-          }
-        } else {
-          runLen = 0;
+          this.frames[i] = pid;
+          got.push(i);
         }
       }
-      return null;
+      return got;
     }
   
     free(pid) {
@@ -35,24 +30,21 @@ export class Memory {
       return freed;
     }
   
-    // Swap-out: copy a process's page contents (frame order), then free its frames.
-    evict(pid) {
-      const saved = [];
-      for (let i = 0; i < this.frames.length; i++) {
-        if (this.frames[i] === pid) saved.push(this.data[i]);
-      }
+    // Swap-out: copy contents in VIRTUAL page order, then free the frames.
+    evict(pid, pageTable) {
+      const saved = pageTable.map((f) => this.data[f]);
       this.free(pid);
       return saved;
     }
   
-    // Swap-in: allocate a block and restore saved contents into it.
+    // Swap-in: allocate frames and restore contents in virtual page order.
     load(pid, saved) {
-      const block = this.allocate(pid, saved.length);
-      if (!block) return null;
+      const frames = this.allocate(pid, saved.length);
+      if (!frames) return null;
       saved.forEach((v, i) => {
-        this.data[block.start + i] = v;
+        this.data[frames[i]] = v;
       });
-      return block;
+      return frames;
     }
   
     // The isolation boundary. Every access goes through here.
@@ -82,6 +74,7 @@ export class Memory {
       return this.frames.filter((f) => f === null).length;
     }
   
+    // Kept for the stats line: shows how scattered free memory is.
     largestFreeBlock() {
       let best = 0;
       let run = 0;
