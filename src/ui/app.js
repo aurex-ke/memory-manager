@@ -5,7 +5,7 @@ import { renderChart } from './chart.js';
 
 const TICK_MS = 1000;
 
-const pm = new ProcessManager(CONFIG);
+let pm = new ProcessManager(CONFIG);
 const $ = (id) => document.getElementById(id);
 let timer = null;
 
@@ -75,6 +75,10 @@ document.addEventListener('click', (e) => {
   const d = e.target.dataset;
   if (d.auto !== undefined) {
     toggleAuto();
+  } else if (d.reset !== undefined) {
+    if (timer) toggleAuto(); // stop the sim first
+    pm = new ProcessManager(CONFIG);
+    render('Reset.');
   } else if (d.custom !== undefined) {
     const name = $('cname').value.trim();
     const mb = Number($('cmb').value);
