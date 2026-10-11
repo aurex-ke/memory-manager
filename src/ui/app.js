@@ -75,6 +75,13 @@ document.addEventListener('click', (e) => {
   const d = e.target.dataset;
   if (d.auto !== undefined) {
     toggleAuto();
+  } else if (d.custom !== undefined) {
+    const name = $('cname').value.trim();
+    const mb = Number($('cmb').value);
+    if (!name) return render('Custom app needs a name.');
+    if (!Number.isFinite(mb) || mb <= 0) return render('Size must be a positive number of MB.');
+    const r = pm.launch(name, mb);
+    render(r.ok ? '' : r.error);
   } else if (d.app !== undefined) {
     const a = CONFIG.APPS[Number(d.app)];
     const r = pm.launch(a.name, a.mb);

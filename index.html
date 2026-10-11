@@ -24,12 +24,19 @@
     #log li.blocked { border-color: #dc2626; background: #fef2f2; }
     #log li.swap { border-color: #2563eb; background: #eff6ff; }
     #auto.on { background: #16a34a; color: #fff; border-color: #15803d; }
+    .custom { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .5rem 0; }
+    .custom input[type=number] { width: 6rem; }
   </style>
 </head>
 <body>
   <h1>Memory Resource Manager</h1>
   <div id="apps"></div>
   <button id="auto" data-auto>Auto-activity: OFF</button>
+  <div class="custom">
+    <label>Custom app <input id="cname" type="text" placeholder="name" value="MyApp"></label>
+    <label>MB <input id="cmb" type="number" min="1" value="40"></label>
+    <button data-custom>Launch</button>
+  </div>
   <div id="msg"></div>
   <div id="grid"></div>
   <div id="stats"></div>
