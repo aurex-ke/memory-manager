@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js';
 import { ProcessManager } from '../core/process.js';
-import { renderGrid } from './grid.js';
+import { renderGrid, renderTable } from './grid.js';
+import { renderChart } from './chart.js';
 
 const pm = new ProcessManager(CONFIG);
 const $ = (id) => document.getElementById(id);
@@ -8,6 +9,8 @@ const $ = (id) => document.getElementById(id);
 function render(msg = '') {
   const s = pm.getState();
   renderGrid($('grid'), s.frames, s.procs);
+  renderChart($('chart'), s.frames, s.procs, s.pageMb);
+  renderTable($('pages'), s.frames, s.procs, s.pageMb);
   $('stats').textContent =
     `Free: ${s.free * s.pageMb} MB | Largest free block: ${s.largestFree * s.pageMb} MB`;
   $('procs').innerHTML = s.procs

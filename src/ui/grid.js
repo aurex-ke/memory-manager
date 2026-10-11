@@ -12,3 +12,15 @@ export function pidColor(pid) {
       )
       .join('');
   }
+  
+  export function renderTable(el, frames, procs, pageMb) {
+    const names = new Map(procs.map((p) => [p.pid, p.name]));
+    el.innerHTML = frames
+      .map((pid, i) => {
+        const addr = '0x' + (i * pageMb * 1024 * 1024).toString(16).padStart(8, '0');
+        return pid === null
+          ? `<tr><td>${i}</td><td>${addr}</td><td>Free</td><td>-</td></tr>`
+          : `<tr><td>${i}</td><td>${addr}</td><td>In RAM</td><td>${names.get(pid)} (pid ${pid})</td></tr>`;
+      })
+      .join('');
+  }

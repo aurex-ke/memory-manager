@@ -10,9 +10,10 @@
     #grid { display: grid; grid-template-columns: repeat(auto-fill, 48px); gap: 4px; margin: 1rem 0; }
     .page { width: 48px; height: 48px; border-radius: 4px; }
     .page.free { background: #e5e7eb; border: 1px dashed #9ca3af; box-sizing: border-box; }
-    table { border-collapse: collapse; width: 100%; }
-    td, th { border-bottom: 1px solid #e5e7eb; padding: .4rem; text-align: left; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
+    td, th { border-bottom: 1px solid #e5e7eb; padding: .3rem .4rem; text-align: left; font-size: 14px; }
     #msg { color: #b91c1c; min-height: 1.4em; }
+    h2 { font-size: 1.05rem; margin: 1.2rem 0 .4rem; }
   </style>
 </head>
 <body>
@@ -21,10 +22,22 @@
   <div id="msg"></div>
   <div id="grid"></div>
   <div id="stats"></div>
+
+  <h2>Resource map</h2>
+  <canvas id="chart" width="460" height="200"></canvas>
+
+  <h2>Processes</h2>
   <table>
     <thead><tr><th>PID</th><th>App</th><th>Size</th><th>Start page</th><th></th></tr></thead>
     <tbody id="procs"></tbody>
   </table>
+
+  <h2>Page lookup table</h2>
+  <table>
+    <thead><tr><th>Page</th><th>Address</th><th>Status</th><th>Owner</th></tr></thead>
+    <tbody id="pages"></tbody>
+  </table>
+
   <script type="module" src="src/ui/app.js"></script>
 </body>
 </html>
