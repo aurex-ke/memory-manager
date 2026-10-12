@@ -4,6 +4,8 @@ A simulated memory manager that runs in the browser. No real RAM is touched: eve
 
 **Live demo:** https://aurex-ke.github.io/memory-manager/ | **[User manual](MANUAL.md)**
 
+![Auto-activity demo: LRU swapping in action](images/demo.gif)
+
 ## Features
 
 - **Allocation / deallocation**: launch an app and it gets frames, close it and they are freed.
