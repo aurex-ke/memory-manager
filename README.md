@@ -2,6 +2,8 @@
 
 A simulated memory manager that runs in the browser. No real RAM is touched: everything runs on a virtual model.
 
+**Live demo:** https://aurex-ke.github.io/memory-manager/ | **[User manual](MANUAL.md)**
+
 ## Features
 
 - **Allocation / deallocation**: launch an app and it gets frames, close it and they are freed.
